@@ -59,7 +59,7 @@ export default function AuditReport({ audit, posts }: { audit: Audit; posts: Pos
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-xs text-neutral-500">
-            Last 30 posts · {new Date(audit.date_range_start).toLocaleDateString()} –{" "}
+            Last 30 days · {new Date(audit.date_range_start).toLocaleDateString()} –{" "}
             {new Date(audit.date_range_end).toLocaleDateString()}
           </span>
           <a
@@ -85,7 +85,7 @@ export default function AuditReport({ audit, posts }: { audit: Audit; posts: Pos
 
         {/* Overview metrics */}
         <section>
-          <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Overview</h2>
+          <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Overview — Last 30 Days</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard label="Total Posts" value={posts.length.toString()} />
             <MetricCard label="Total Views" value={sum(posts, "views").toLocaleString()} />

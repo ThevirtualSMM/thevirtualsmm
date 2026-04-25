@@ -32,6 +32,8 @@ export default async function AuditPage({ params }: { params: Promise<{ auditId:
     .from("posts")
     .select("*")
     .eq("audit_id", auditId)
+    .gte("posted_at", typedAudit.date_range_start)
+    .lte("posted_at", typedAudit.date_range_end + "T23:59:59")
     .order("posted_at", { ascending: true });
 
   return <AuditReport audit={typedAudit} posts={(posts || []) as Post[]} />;
