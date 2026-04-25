@@ -49,6 +49,9 @@ export default function PostCard({ post, metric }: { post: Post; metric: string 
             <span className="text-neutral-500 font-normal"> views</span>
           </span>
           {post.accounts_reached > 0 && <span>{post.accounts_reached.toLocaleString()} reached</span>}
+          {post.follows_from_post > 0 && (
+            <span className="text-purple-400">{post.follows_from_post.toLocaleString()} follows</span>
+          )}
           {post.like_rate != null && <span>{(post.like_rate * 100).toFixed(1)}% likes</span>}
           {post.share_rate != null && <span>{(post.share_rate * 100).toFixed(1)}% shares</span>}
           {post.avg_watch_time_seconds != null && (

@@ -110,16 +110,14 @@ export async function getMediaInsights(mediaId: string, mediaType: string, acces
   let metrics: string[];
 
   if (mediaType === "VIDEO" || mediaType === "REEL") {
-    // "views" works for all types. ig_reels_avg_watch_time returns milliseconds.
     metrics = [
-      "reach", "saved", "shares", "likes",
+      "reach", "saved", "shares", "likes", "comments", "follows",
       "views", "ig_reels_avg_watch_time",
       "total_interactions",
     ];
   } else {
-    // IMAGE and CAROUSEL_ALBUM — "views" works here too, "impressions" does NOT
     metrics = [
-      "reach", "saved", "shares", "likes",
+      "reach", "saved", "shares", "likes", "comments", "follows",
       "views", "total_interactions",
     ];
   }

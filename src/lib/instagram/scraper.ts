@@ -54,9 +54,9 @@ export async function scrapeAndStore(
       const likes = m["likes"] || 0;
       const shares = m["shares"] || 0;
       const saves = m["saved"] || 0;
-      const commentsCount = m["comments"] || m["comments_count"] || 0;
-      const follows = m["follows"] || 0;
-      const navigation = m["navigation"] || 0;
+      const commentsCount = m["comments"] ?? m["comments_count"] ?? null;
+      const follows = m["follows"] ?? null;
+      const navigation = m["navigation"] ?? null;
 
       const postType = isVideo
         ? (details.permalink?.includes("reel") ? "reel" : "video")
@@ -86,14 +86,14 @@ export async function scrapeAndStore(
           views,
           accounts_reached: reach,
           avg_watch_time_seconds: m["ig_reels_avg_watch_time"] ? m["ig_reels_avg_watch_time"] / 1000 : null,
-          follows_from_post: follows,
+          follows_from_post: follows ?? 0,
 
-          skip_rate: safeRate(navigation, views),
+          skip_rate: navigation != null ? safeRate(navigation, views) : null,
           share_rate: safeRate(shares, reach),
           like_rate: safeRate(likes, reach),
           save_rate: safeRate(saves, reach),
           repost_rate: null,
-          comment_rate: safeRate(commentsCount, reach),
+          comment_rate: commentsCount != null ? safeRate(commentsCount, reach) : null,
 
           source_home: null,
           source_explore: null,

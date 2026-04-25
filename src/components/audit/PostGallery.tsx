@@ -90,6 +90,11 @@ export default function PostGallery({ posts, auditId }: Props) {
                         {post.accounts_reached.toLocaleString()} reached
                       </p>
                     )}
+                    {post.follows_from_post > 0 && (
+                      <p className="text-xs text-purple-300">
+                        +{post.follows_from_post.toLocaleString()} follows
+                      </p>
+                    )}
                     {post.like_rate != null && (
                       <p className="text-xs text-neutral-300">
                         {(post.like_rate * 100).toFixed(1)}% likes
