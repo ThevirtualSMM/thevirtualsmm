@@ -95,14 +95,19 @@ export default function PostGallery({ posts, auditId }: Props) {
                         +{post.follows_from_post.toLocaleString()} follows
                       </p>
                     )}
-                    {post.like_rate != null && (
+                    {post.likes_count > 0 && (
                       <p className="text-xs text-neutral-300">
-                        {(post.like_rate * 100).toFixed(1)}% likes
+                        {post.likes_count.toLocaleString()} likes{post.like_rate != null ? ` · ${(post.like_rate * 100).toFixed(1)}%` : ""}
                       </p>
                     )}
-                    {post.share_rate != null && (
+                    {post.shares_count > 0 && (
                       <p className="text-xs text-neutral-300">
-                        {(post.share_rate * 100).toFixed(1)}% shares
+                        {post.shares_count.toLocaleString()} shares{post.share_rate != null ? ` · ${(post.share_rate * 100).toFixed(1)}%` : ""}
+                      </p>
+                    )}
+                    {post.saves_count > 0 && (
+                      <p className="text-xs text-neutral-300">
+                        {post.saves_count.toLocaleString()} saves{post.save_rate != null ? ` · ${(post.save_rate * 100).toFixed(1)}%` : ""}
                       </p>
                     )}
                     {post.avg_watch_time_seconds != null && (

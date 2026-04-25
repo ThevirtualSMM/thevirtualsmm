@@ -50,10 +50,17 @@ export default function PostCard({ post, metric }: { post: Post; metric: string 
           </span>
           {post.accounts_reached > 0 && <span>{post.accounts_reached.toLocaleString()} reached</span>}
           {post.follows_from_post > 0 && (
-            <span className="text-purple-400">{post.follows_from_post.toLocaleString()} follows</span>
+            <span className="text-purple-400">+{post.follows_from_post.toLocaleString()} follows</span>
           )}
-          {post.like_rate != null && <span>{(post.like_rate * 100).toFixed(1)}% likes</span>}
-          {post.share_rate != null && <span>{(post.share_rate * 100).toFixed(1)}% shares</span>}
+          {post.likes_count > 0 && (
+            <span>{post.likes_count.toLocaleString()} likes{post.like_rate != null ? ` (${(post.like_rate * 100).toFixed(1)}%)` : ""}</span>
+          )}
+          {post.shares_count > 0 && (
+            <span>{post.shares_count.toLocaleString()} shares{post.share_rate != null ? ` (${(post.share_rate * 100).toFixed(1)}%)` : ""}</span>
+          )}
+          {post.saves_count > 0 && (
+            <span>{post.saves_count.toLocaleString()} saves{post.save_rate != null ? ` (${(post.save_rate * 100).toFixed(1)}%)` : ""}</span>
+          )}
           {post.avg_watch_time_seconds != null && (
             <span>{post.avg_watch_time_seconds.toFixed(1)}s watch</span>
           )}

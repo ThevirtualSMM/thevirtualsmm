@@ -46,6 +46,10 @@ export interface Post {
   accounts_reached: number;
   avg_watch_time_seconds: number | null;
   follows_from_post: number;
+  likes_count: number;
+  shares_count: number;
+  saves_count: number;
+  comments_count: number;
   skip_rate: number | null;
   share_rate: number | null;
   like_rate: number | null;

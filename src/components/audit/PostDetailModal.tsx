@@ -64,14 +64,14 @@ export default function PostDetailModal({ post, allPosts, auditId, open, onClose
   }
 
   const metrics = [
-    { label: "Views", value: num(post.views) },
-    { label: "Accounts Reached", value: num(post.accounts_reached) },
-    { label: "Followers Gained", value: post.follows_from_post > 0 ? `+${post.follows_from_post.toLocaleString()}` : "—" },
-    { label: "Like Rate", value: pct(post.like_rate), formula: "likes ÷ reach" },
-    { label: "Share Rate", value: pct(post.share_rate), formula: "shares ÷ reach" },
-    { label: "Save Rate", value: pct(post.save_rate), formula: "saves ÷ reach" },
-    { label: "Comment Rate", value: pct(post.comment_rate), formula: "comments ÷ reach" },
-    { label: "Skip Rate", value: pct(post.skip_rate), formula: "exits ÷ views" },
+    { label: "Views", value: num(post.views), sub: null },
+    { label: "Accounts Reached", value: num(post.accounts_reached), sub: null },
+    { label: "Followers Gained", value: post.follows_from_post > 0 ? `+${post.follows_from_post.toLocaleString()}` : "—", sub: null },
+    { label: "Likes", value: num(post.likes_count), sub: post.like_rate != null ? `${(post.like_rate * 100).toFixed(1)}% of reach` : null },
+    { label: "Shares", value: num(post.shares_count), sub: post.share_rate != null ? `${(post.share_rate * 100).toFixed(1)}% of reach` : null },
+    { label: "Saves", value: num(post.saves_count), sub: post.save_rate != null ? `${(post.save_rate * 100).toFixed(1)}% of reach` : null },
+    { label: "Comments", value: num(post.comments_count), sub: post.comment_rate != null ? `${(post.comment_rate * 100).toFixed(1)}% of reach` : null },
+    { label: "Skip Rate", value: pct(post.skip_rate), sub: post.skip_rate != null ? "exits ÷ views" : "not available" },
     ...(isVideo
       ? [
           {
@@ -166,11 +166,11 @@ export default function PostDetailModal({ post, allPosts, auditId, open, onClose
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {metrics.map((m) => (
                   <div key={m.label} className="bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3">
-                    <p className="text-xs text-neutral-500 mb-0.5">{m.label}</p>
-                    {"formula" in m && m.formula && (
-                      <p className="text-[10px] text-neutral-700 mb-1">{m.formula}</p>
-                    )}
+                    <p className="text-xs text-neutral-500 mb-1">{m.label}</p>
                     <p className="text-base font-semibold text-white">{m.value}</p>
+                    {m.sub && (
+                      <p className="text-[10px] text-neutral-600 mt-0.5">{m.sub}</p>
+                    )}
                   </div>
                 ))}
               </div>
