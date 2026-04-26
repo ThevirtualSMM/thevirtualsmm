@@ -7,6 +7,7 @@ import ConnectInstagramButton from "@/components/dashboard/ConnectInstagramButto
 import RunAuditButton from "@/components/dashboard/RunAuditButton";
 import AuditList from "@/components/dashboard/AuditList";
 import LogoutButton from "@/components/dashboard/LogoutButton";
+import AccountInsightsPanel from "@/components/dashboard/AccountInsightsPanel";
 
 export default async function DashboardPage({
   searchParams,
@@ -107,6 +108,13 @@ export default async function DashboardPage({
             </div>
           )}
         </section>
+
+        {/* Account Insights panel — only when Instagram is connected */}
+        {igAccount && (
+          <section className="mb-10">
+            <AccountInsightsPanel />
+          </section>
+        )}
 
         {/* Audits section */}
         <section>
