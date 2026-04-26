@@ -13,10 +13,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { instagram_account_id } = await req.json();
+  const { instagram_account_id, days = 30 } = await req.json();
   if (!instagram_account_id) {
     return NextResponse.json({ error: "instagram_account_id required" }, { status: 400 });
   }
+  const auditDays = days === 90 ? 90 : 30;
 
   const userId = session.user.id;
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const today = new Date();
   const since = new Date();
-  since.setDate(today.getDate() - 30);
+  since.setDate(today.getDate() - auditDays);
 
   const { data: audit, error: auditError } = await supabase
     .from("audits")
