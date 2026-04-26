@@ -27,6 +27,11 @@ function pct(val: number) {
   return `${(val * 100).toFixed(1)}%`;
 }
 
+function rateOrDash(posts: Post[], key: keyof Post): string {
+  if (posts.length === 0) return "—";
+  return pct(weightedRate(posts, key));
+}
+
 interface AuditReportProps {
   audit: Audit;
   posts: Post[];
@@ -115,10 +120,10 @@ export default function AuditReport({ audit, posts, followerReach, nonFollowerRe
               label="Reach — Non-followers"
               value={nonFollowerReach != null ? nonFollowerReach.toLocaleString() : "—"}
             />
-            <MetricCard label="Avg Like Rate" value={pct(weightedRate(posts, "like_rate"))} />
-            <MetricCard label="Avg Save Rate" value={pct(weightedRate(posts, "save_rate"))} />
-            <MetricCard label="Avg Share Rate" value={pct(weightedRate(posts, "share_rate"))} />
-            <MetricCard label="Avg Comment Rate" value={pct(weightedRate(posts, "comment_rate"))} />
+            <MetricCard label="Avg Like Rate"    value={rateOrDash(posts, "like_rate")} />
+            <MetricCard label="Avg Save Rate"    value={rateOrDash(posts, "save_rate")} />
+            <MetricCard label="Avg Share Rate"   value={rateOrDash(posts, "share_rate")} />
+            <MetricCard label="Avg Comment Rate" value={rateOrDash(posts, "comment_rate")} />
           </div>
         </section>
 

@@ -68,10 +68,20 @@ async function runAudit(
     const { scraped, total, errors } = await scrapeAndStore(auditId, userId, igUserId, accessToken, since);
 
     if (total === 0) {
-      await supabase.from("audits").update({
-        status: "failed",
-        error_message: "No posts found in the last 30 days on this Instagram account.",
-      }).eq("id", auditId);
+      // No posts in the audit window — still mark complete so the report
+      // renders the Account Insights panel (account-level metrics exist
+      // even when no posts were published in the period).
+      await supabase
+        .from("audits")
+        .update({
+          status: "complete",
+          completed_at: new Date().toISOString(),
+          total_posts_scraped: 0,
+          claude_summary:
+            "No posts were published in this date range. Account-level insights below show overall reach, views, and audience composition for the period.",
+          claude_json: null,
+        })
+        .eq("id", auditId);
       return;
     }
 
