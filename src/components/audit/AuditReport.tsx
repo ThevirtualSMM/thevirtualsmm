@@ -124,7 +124,6 @@ export default function AuditReport({ audit, posts, followerReach, nonFollowerRe
 
         {/* Account Insights — locked to this audit's exact date window */}
         <section>
-          <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Account Insights</h2>
           <AccountInsightsPanel
             since={audit.date_range_start}
             until={audit.date_range_end}

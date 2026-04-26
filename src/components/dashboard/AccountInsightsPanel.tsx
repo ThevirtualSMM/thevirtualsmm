@@ -165,8 +165,8 @@ export default function AccountInsightsPanel({ defaultDays = 30, showToggle = tr
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
       {/* Panel header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs uppercase tracking-widest text-neutral-500">Account Insights</h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold text-white tracking-tight">Account insights</h3>
 
         {/* 30d / 90d toggle */}
         {showToggle && (
@@ -210,14 +210,24 @@ export default function AccountInsightsPanel({ defaultDays = 30, showToggle = tr
 
       {/* Content */}
       {!loading && !error && data && !data.insufficientData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
 
           {/* ── Left column ── */}
           <div>
-            <p className="text-xs text-neutral-500 mb-1">Views</p>
-            <p className="text-5xl font-bold text-white tracking-tight mb-5">
+            <div className="flex items-center gap-1.5 mb-3">
+              <h4 className="text-base font-semibold text-white">Views</h4>
+              <span
+                className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-neutral-600 text-[9px] text-neutral-500 cursor-help"
+                title="Total views across reels, stories, and posts in this date range."
+                aria-label="About views"
+              >
+                i
+              </span>
+            </div>
+            <p className="text-5xl font-bold text-white tracking-tight leading-none">
               {fmt(data.totalViews)}
             </p>
+            <p className="text-xs text-neutral-500 mt-1 mb-6">Views</p>
 
             <div className="space-y-3">
               {/* Followers row */}
@@ -266,16 +276,18 @@ export default function AccountInsightsPanel({ defaultDays = 30, showToggle = tr
 
           {/* ── Right column ── */}
           <div>
+            <h4 className="text-base font-semibold text-white mb-3">By content type</h4>
+
             {/* Tab pills */}
-            <div className="flex gap-1 bg-neutral-800 rounded-lg p-1 mb-5">
+            <div className="flex gap-2 mb-6">
               {(["all", "followers", "non-followers"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${
+                  className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
                     tab === t
-                      ? "bg-neutral-700 text-white font-medium"
-                      : "text-neutral-500 hover:text-neutral-300"
+                      ? "bg-indigo-600 text-white font-medium"
+                      : "bg-neutral-800 text-neutral-300 hover:bg-neutral-750"
                   }`}
                 >
                   {t === "all" ? "All" : t === "followers" ? "Followers" : "Non-followers"}
