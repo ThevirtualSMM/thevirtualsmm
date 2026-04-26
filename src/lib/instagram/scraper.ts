@@ -37,7 +37,6 @@ export async function scrapeAndStore(
 
   for (const mediaId of mediaIds) {
     try {
-      // Get details first so we know the media type for correct insights
       const details = await getMediaDetails(mediaId, accessToken);
       const isVideo = details.media_type === "VIDEO";
 
@@ -47,17 +46,18 @@ export async function scrapeAndStore(
       ]);
 
       const m = parseInsights(insights);
-      const reach = m["reach"] || 0;
 
-      // "views" works for all media types (reels, carousels, images)
-      const views = m["views"] || 0;
-
-      const likes = m["likes"] || 0;
-      const shares = m["shares"] || 0;
-      const saves = m["saved"] || 0;
-      const commentsRaw = m["comments"] ?? m["comments_count"] ?? null;
-      const follows = m["follows"] ?? null;
-      const navigation = m["navigation"] ?? null;
+      const reach      = m["reach"]  || 0;
+      const views      = m["views"]  || 0;
+      const likes      = m["likes"]  || 0;
+      const shares     = m["shares"] || 0;
+      const saves      = m["saved"]  || 0;
+      // comments metric — present only when tier-1 request succeeds
+      const commentsCount = m["comments"] != null ? m["comments"] : null;
+      // navigation only works for Stories, not feed/reels — will be null
+      const navigation = m["navigation"] != null ? m["navigation"] : null;
+      // ig_reels_avg_watch_time is in milliseconds
+      const avgWatchMs = m["ig_reels_avg_watch_time"] || 0;
 
       const postType = isVideo
         ? (details.permalink?.includes("reel") ? "reel" : "video")
@@ -66,49 +66,55 @@ export async function scrapeAndStore(
         : "image";
 
       const hashtags = details.caption
-        ? [...details.caption.matchAll(/#(\w+)/g)].map((m: RegExpMatchArray) => m[1])
+        ? [...details.caption.matchAll(/#(\w+)/g)].map((match: RegExpMatchArray) => match[1])
         : [];
 
       const questions = extractQuestions(comments);
 
       const baseRecord = {
-        audit_id: auditId,
-        user_id: userId,
-        instagram_post_id: mediaId,
-        post_type: postType,
-        posted_at: details.timestamp,
-        caption: details.caption || null,
-        hashtags: hashtags.length > 0 ? hashtags : null,
-        is_collab: false,
-        duration_seconds: null,
-        thumbnail_url: details.thumbnail_url || details.media_url || null,
+        audit_id:              auditId,
+        user_id:               userId,
+        instagram_post_id:     mediaId,
+        post_type:             postType,
+        posted_at:             details.timestamp,
+        caption:               details.caption || null,
+        hashtags:              hashtags.length > 0 ? hashtags : null,
+        is_collab:             false,
+        duration_seconds:      null,
+        thumbnail_url:         details.thumbnail_url || details.media_url || null,
 
         views,
-        accounts_reached: reach,
-        avg_watch_time_seconds: m["ig_reels_avg_watch_time"] ? m["ig_reels_avg_watch_time"] / 1000 : null,
-        follows_from_post: follows ?? 0,
+        accounts_reached:      reach,
+        avg_watch_time_seconds: isVideo && avgWatchMs > 0 ? avgWatchMs / 1000 : null,
+        follows_from_post:     0,
 
-        skip_rate: navigation != null ? safeRate(navigation, views) : null,
-        share_rate: safeRate(shares, reach),
-        like_rate: safeRate(likes, reach),
-        save_rate: safeRate(saves, reach),
-        repost_rate: null,
-        comment_rate: commentsRaw != null ? safeRate(commentsRaw, reach) : null,
+        skip_rate:    navigation != null ? safeRate(navigation, views) : null,
+        share_rate:   safeRate(shares, reach),
+        like_rate:    safeRate(likes, reach),
+        save_rate:    safeRate(saves, reach),
+        repost_rate:  null,
+        comment_rate: commentsCount != null ? safeRate(commentsCount, reach) : null,
 
-        source_home: null,
-        source_explore: null,
-        source_profile: null,
+        source_home:     null,
+        source_explore:  null,
+        source_profile:  null,
         source_hashtags: null,
-        source_other: null,
+        source_other:    null,
 
-        top_comments: comments.length > 0 ? comments : null,
-        questions_in_comments: questions.length > 0 ? questions : null,
-        performance_tiers: null,
+        top_comments:           comments.length > 0 ? comments : null,
+        questions_in_comments:  questions.length > 0 ? questions : null,
+        performance_tiers:      null,
       };
 
-      // Try with new count columns first; fall back to base record if columns don't exist yet
+      // Try with new count columns; fall back to base record if columns don't exist yet
       const { error: upsertError } = await supabase.from("posts").upsert(
-        { ...baseRecord, likes_count: likes, shares_count: shares, saves_count: saves, comments_count: commentsRaw ?? 0 },
+        {
+          ...baseRecord,
+          likes_count:    likes,
+          shares_count:   shares,
+          saves_count:    saves,
+          comments_count: commentsCount ?? 0,
+        },
         { onConflict: "audit_id,instagram_post_id" }
       );
 

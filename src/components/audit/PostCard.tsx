@@ -61,8 +61,11 @@ export default function PostCard({ post, metric }: { post: Post; metric: string 
           {post.saves_count > 0 && (
             <span>{post.saves_count.toLocaleString()} saves{post.save_rate != null ? ` (${(post.save_rate * 100).toFixed(1)}%)` : ""}</span>
           )}
+          {post.comment_rate != null && (
+            <span>{(post.comment_rate * 100).toFixed(2)}% comments</span>
+          )}
           {post.avg_watch_time_seconds != null && (
-            <span>{post.avg_watch_time_seconds.toFixed(1)}s watch</span>
+            <span className="text-blue-400">{post.avg_watch_time_seconds.toFixed(1)}s avg watch</span>
           )}
         </div>
         {post.questions_in_comments && post.questions_in_comments.length > 0 && (

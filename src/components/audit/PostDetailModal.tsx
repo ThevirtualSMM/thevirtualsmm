@@ -71,18 +71,18 @@ export default function PostDetailModal({ post, allPosts, auditId, open, onClose
     { label: "Shares", value: num(post.shares_count), sub: post.share_rate != null ? `${(post.share_rate * 100).toFixed(1)}% of reach` : null },
     { label: "Saves", value: num(post.saves_count), sub: post.save_rate != null ? `${(post.save_rate * 100).toFixed(1)}% of reach` : null },
     { label: "Comments", value: num(post.comments_count), sub: post.comment_rate != null ? `${(post.comment_rate * 100).toFixed(1)}% of reach` : null },
-    { label: "Skip Rate", value: pct(post.skip_rate), sub: post.skip_rate != null ? "exits ÷ views" : "not available" },
+    { label: "Skip Rate", value: post.skip_rate != null ? pct(post.skip_rate) : "—", sub: post.skip_rate == null ? "not available for posts" : "exits ÷ views" },
     ...(isVideo
       ? [
           {
             label: "Avg Watch Time",
-            value: post.avg_watch_time_seconds
-              ? `${post.avg_watch_time_seconds.toFixed(1)}s`
-              : "—",
+            value: post.avg_watch_time_seconds ? `${post.avg_watch_time_seconds.toFixed(1)}s` : "—",
+            sub: "from Instagram API",
           },
           {
-            label: "Retention",
+            label: "Retention %",
             value: scores.retention != null ? `${scores.retention.toFixed(1)}%` : "—",
+            sub: scores.retention == null ? "needs video duration" : "watch time ÷ duration",
           },
         ]
       : []),

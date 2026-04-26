@@ -7,14 +7,19 @@ import MetricCard from "./MetricCard";
 import PostCard from "./PostCard";
 import PostGallery from "./PostGallery";
 
-function avg(posts: Post[], key: keyof Post): number {
-  const vals = posts.map((p) => Number(p[key] || 0)).filter((v) => v > 0);
-  if (vals.length === 0) return 0;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
-}
-
 function sum(posts: Post[], key: keyof Post): number {
   return posts.reduce((a, p) => a + Number(p[key] || 0), 0);
+}
+
+// Weighted rate: total actions across all posts ÷ total reach
+// More accurate than simple average — gives proper weight to high-reach posts
+function weightedRate(posts: Post[], rateKey: keyof Post): number {
+  const totalReach = sum(posts, "accounts_reached");
+  if (totalReach === 0) return 0;
+  const totalActions = posts.reduce((a, p) => {
+    return a + Number(p[rateKey] || 0) * Number(p.accounts_reached || 0);
+  }, 0);
+  return totalActions / totalReach;
 }
 
 function pct(val: number) {
@@ -90,15 +95,18 @@ export default function AuditReport({ audit, posts }: { audit: Audit; posts: Pos
             <MetricCard label="Total Posts" value={posts.length.toString()} />
             <MetricCard label="Total Views" value={sum(posts, "views").toLocaleString()} />
             <MetricCard label="Total Reach" value={sum(posts, "accounts_reached").toLocaleString()} />
-            <MetricCard label="Total Follows" value={sum(posts, "follows_from_post").toLocaleString()} />
-            <MetricCard label="Avg Like Rate" value={pct(avg(posts, "like_rate"))} />
-            <MetricCard label="Avg Save Rate" value={pct(avg(posts, "save_rate"))} />
-            <MetricCard label="Avg Share Rate" value={pct(avg(posts, "share_rate"))} />
-            {avgRetention != null ? (
-              <MetricCard label="Avg Retention" value={`${avgRetention.toFixed(1)}%`} />
-            ) : (
-              <MetricCard label="Avg Comment Rate" value={pct(avg(posts, "comment_rate"))} />
-            )}
+            <MetricCard label="Avg Watch Time" value={
+              (() => {
+                const reelsWithWatch = posts.filter(p => p.avg_watch_time_seconds != null && p.avg_watch_time_seconds > 0);
+                if (reelsWithWatch.length === 0) return "—";
+                const avg = reelsWithWatch.reduce((a, p) => a + (p.avg_watch_time_seconds || 0), 0) / reelsWithWatch.length;
+                return `${avg.toFixed(1)}s`;
+              })()
+            } />
+            <MetricCard label="Avg Like Rate" value={pct(weightedRate(posts, "like_rate"))} />
+            <MetricCard label="Avg Save Rate" value={pct(weightedRate(posts, "save_rate"))} />
+            <MetricCard label="Avg Share Rate" value={pct(weightedRate(posts, "share_rate"))} />
+            <MetricCard label="Avg Comment Rate" value={pct(weightedRate(posts, "comment_rate"))} />
           </div>
         </section>
 

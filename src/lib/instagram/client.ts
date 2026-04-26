@@ -107,41 +107,30 @@ export async function getMediaDetails(mediaId: string, accessToken: string) {
 }
 
 export async function getMediaInsights(mediaId: string, mediaType: string, accessToken: string) {
-  let metrics: string[];
+  const isVideo = mediaType === "VIDEO" || mediaType === "REEL";
 
-  if (mediaType === "VIDEO" || mediaType === "REEL") {
-    metrics = [
-      "reach", "saved", "shares", "likes", "comments", "follows",
-      "views", "ig_reels_avg_watch_time",
-      "total_interactions",
-    ];
-  } else {
-    metrics = [
-      "reach", "saved", "shares", "likes", "comments", "follows",
-      "views", "total_interactions",
-    ];
-  }
+  // Tier 1 — full metrics including comments
+  const tier1 = isVideo
+    ? ["reach", "saved", "shares", "likes", "comments", "views", "ig_reels_avg_watch_time", "total_interactions"]
+    : ["reach", "saved", "shares", "likes", "comments", "views", "total_interactions"];
 
-  const params = new URLSearchParams({
-    metric: metrics.join(","),
-    access_token: accessToken,
-  });
+  const res1 = await fetch(`${BASE}/${mediaId}/insights?${new URLSearchParams({ metric: tier1.join(","), access_token: accessToken })}`);
+  const data1 = await res1.json();
+  if (!data1.error) return data1.data || [];
 
-  const res = await fetch(`${BASE}/${mediaId}/insights?${params}`);
-  const data = await res.json();
+  // Tier 2 — without comments (in case comments causes the rejection)
+  const tier2 = isVideo
+    ? "reach,saved,shares,likes,views,ig_reels_avg_watch_time,total_interactions"
+    : "reach,saved,shares,likes,views,total_interactions";
 
-  if (data.error) {
-    // Retry with bare minimum that works for all types
-    const safeParams = new URLSearchParams({
-      metric: "reach,saved,shares,likes,total_interactions",
-      access_token: accessToken,
-    });
-    const retry = await fetch(`${BASE}/${mediaId}/insights?${safeParams}`);
-    const retryData = await retry.json();
-    return retryData.data || [];
-  }
+  const res2 = await fetch(`${BASE}/${mediaId}/insights?${new URLSearchParams({ metric: tier2, access_token: accessToken })}`);
+  const data2 = await res2.json();
+  if (!data2.error) return data2.data || [];
 
-  return data.data || [];
+  // Tier 3 — bare minimum guaranteed to work
+  const res3 = await fetch(`${BASE}/${mediaId}/insights?${new URLSearchParams({ metric: "reach,saved,shares,likes,total_interactions", access_token: accessToken })}`);
+  const data3 = await res3.json();
+  return data3.data || [];
 }
 
 export async function getTopComments(mediaId: string, accessToken: string) {
