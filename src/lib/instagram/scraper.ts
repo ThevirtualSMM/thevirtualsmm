@@ -70,48 +70,57 @@ export async function scrapeAndStore(
 
       const questions = extractQuestions(comments);
 
-      await supabase.from("posts").upsert(
-        {
-          audit_id: auditId,
-          user_id: userId,
-          instagram_post_id: mediaId,
-          post_type: postType,
-          posted_at: details.timestamp,
-          caption: details.caption || null,
-          hashtags: hashtags.length > 0 ? hashtags : null,
-          is_collab: false,
-          duration_seconds: null,
-          thumbnail_url: details.thumbnail_url || details.media_url || null,
+      const baseRecord = {
+        audit_id: auditId,
+        user_id: userId,
+        instagram_post_id: mediaId,
+        post_type: postType,
+        posted_at: details.timestamp,
+        caption: details.caption || null,
+        hashtags: hashtags.length > 0 ? hashtags : null,
+        is_collab: false,
+        duration_seconds: null,
+        thumbnail_url: details.thumbnail_url || details.media_url || null,
 
-          views,
-          accounts_reached: reach,
-          avg_watch_time_seconds: m["ig_reels_avg_watch_time"] ? m["ig_reels_avg_watch_time"] / 1000 : null,
-          follows_from_post: follows ?? 0,
+        views,
+        accounts_reached: reach,
+        avg_watch_time_seconds: m["ig_reels_avg_watch_time"] ? m["ig_reels_avg_watch_time"] / 1000 : null,
+        follows_from_post: follows ?? 0,
 
-          likes_count: likes,
-          shares_count: shares,
-          saves_count: saves,
-          comments_count: commentsRaw ?? 0,
+        skip_rate: navigation != null ? safeRate(navigation, views) : null,
+        share_rate: safeRate(shares, reach),
+        like_rate: safeRate(likes, reach),
+        save_rate: safeRate(saves, reach),
+        repost_rate: null,
+        comment_rate: commentsRaw != null ? safeRate(commentsRaw, reach) : null,
 
-          skip_rate: navigation != null ? safeRate(navigation, views) : null,
-          share_rate: safeRate(shares, reach),
-          like_rate: safeRate(likes, reach),
-          save_rate: safeRate(saves, reach),
-          repost_rate: null,
-          comment_rate: commentsRaw != null ? safeRate(commentsRaw, reach) : null,
+        source_home: null,
+        source_explore: null,
+        source_profile: null,
+        source_hashtags: null,
+        source_other: null,
 
-          source_home: null,
-          source_explore: null,
-          source_profile: null,
-          source_hashtags: null,
-          source_other: null,
+        top_comments: comments.length > 0 ? comments : null,
+        questions_in_comments: questions.length > 0 ? questions : null,
+        performance_tiers: null,
+      };
 
-          top_comments: comments.length > 0 ? comments : null,
-          questions_in_comments: questions.length > 0 ? questions : null,
-          performance_tiers: null,
-        },
+      // Try with new count columns first; fall back to base record if columns don't exist yet
+      const { error: upsertError } = await supabase.from("posts").upsert(
+        { ...baseRecord, likes_count: likes, shares_count: shares, saves_count: saves, comments_count: commentsRaw ?? 0 },
         { onConflict: "audit_id,instagram_post_id" }
       );
+
+      if (upsertError) {
+        const { error: retryError } = await supabase.from("posts").upsert(
+          baseRecord,
+          { onConflict: "audit_id,instagram_post_id" }
+        );
+        if (retryError) {
+          console.error(`Failed to upsert post ${mediaId}:`, retryError.message);
+          continue;
+        }
+      }
 
       scraped++;
       onProgress?.(scraped, mediaIds.length);
