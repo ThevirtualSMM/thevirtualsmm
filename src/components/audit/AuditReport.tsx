@@ -6,6 +6,7 @@ import PerformanceChart from "./PerformanceChart";
 import MetricCard from "./MetricCard";
 import PostCard from "./PostCard";
 import PostGallery from "./PostGallery";
+import AccountInsightsPanel from "@/components/dashboard/AccountInsightsPanel";
 
 function sum(posts: Post[], key: keyof Post): number {
   return posts.reduce((a, p) => a + Number(p[key] || 0), 0);
@@ -26,7 +27,14 @@ function pct(val: number) {
   return `${(val * 100).toFixed(1)}%`;
 }
 
-export default function AuditReport({ audit, posts }: { audit: Audit; posts: Post[] }) {
+interface AuditReportProps {
+  audit: Audit;
+  posts: Post[];
+  followerReach?: number | null;
+  nonFollowerReach?: number | null;
+}
+
+export default function AuditReport({ audit, posts, followerReach, nonFollowerReach }: AuditReportProps) {
   const analysis = audit.claude_json;
 
   const bestByViews = posts.filter((p) => p.performance_tiers?.includes("best_views"));
@@ -47,12 +55,6 @@ export default function AuditReport({ audit, posts }: { audit: Audit; posts: Pos
         const bShares = (b.share_rate || 0) * (b.accounts_reached || 0);
         return bShares > aShares ? b : a;
       })
-    : null;
-
-  // Avg retention for videos
-  const videoWithRetention = videos.filter((p) => p.avg_watch_time_seconds && p.duration_seconds);
-  const avgRetention = videoWithRetention.length > 0
-    ? videoWithRetention.reduce((a, p) => a + (p.avg_watch_time_seconds! / p.duration_seconds!) * 100, 0) / videoWithRetention.length
     : null;
 
   return (
@@ -91,10 +93,12 @@ export default function AuditReport({ audit, posts }: { audit: Audit; posts: Pos
         {/* Overview metrics */}
         <section>
           <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Overview</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <MetricCard label="Total Posts" value={posts.length.toString()} />
-            <MetricCard label="Total Views" value={sum(posts, "views").toLocaleString()} />
-            <MetricCard label="Total Reach" value={sum(posts, "accounts_reached").toLocaleString()} />
+            <MetricCard
+              label="Avg Views / Post"
+              value={posts.length > 0 ? Math.round(sum(posts, "views") / posts.length).toLocaleString() : "—"}
+            />
             <MetricCard label="Avg Watch Time" value={
               (() => {
                 const reelsWithWatch = posts.filter(p => p.avg_watch_time_seconds != null && p.avg_watch_time_seconds > 0);
@@ -103,11 +107,29 @@ export default function AuditReport({ audit, posts }: { audit: Audit; posts: Pos
                 return `${avg.toFixed(1)}s`;
               })()
             } />
+            <MetricCard
+              label="Reach — Followers"
+              value={followerReach != null ? followerReach.toLocaleString() : "—"}
+            />
+            <MetricCard
+              label="Reach — Non-followers"
+              value={nonFollowerReach != null ? nonFollowerReach.toLocaleString() : "—"}
+            />
             <MetricCard label="Avg Like Rate" value={pct(weightedRate(posts, "like_rate"))} />
             <MetricCard label="Avg Save Rate" value={pct(weightedRate(posts, "save_rate"))} />
             <MetricCard label="Avg Share Rate" value={pct(weightedRate(posts, "share_rate"))} />
             <MetricCard label="Avg Comment Rate" value={pct(weightedRate(posts, "comment_rate"))} />
           </div>
+        </section>
+
+        {/* Account Insights — locked to this audit's exact date window */}
+        <section>
+          <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Account Insights</h2>
+          <AccountInsightsPanel
+            since={audit.date_range_start}
+            until={audit.date_range_end}
+            showToggle={false}
+          />
         </section>
 
         {/* Post Gallery */}

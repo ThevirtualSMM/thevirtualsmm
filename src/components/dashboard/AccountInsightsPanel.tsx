@@ -13,6 +13,8 @@ interface AccountInsightsResult {
   followerViews: number;
   nonFollowerViews: number;
   totalReach: number;
+  followerReach: number;
+  nonFollowerReach: number;
   viewsByContentType: ContentBreakdown;
   followerViewsByContentType: ContentBreakdown;
   nonFollowerViewsByContentType: ContentBreakdown;
@@ -22,6 +24,14 @@ interface AccountInsightsResult {
 
 type WindowDays = 30 | 90;
 type Tab = "all" | "followers" | "non-followers";
+
+interface AccountInsightsPanelProps {
+  defaultDays?: WindowDays;
+  showToggle?: boolean;
+  /** Lock the panel to a specific date range (e.g. the audit's window) */
+  since?: string;
+  until?: string;
+}
 
 const PINK   = "#E879F9";
 const PURPLE = "#8B5CF6";
@@ -109,8 +119,8 @@ function BarRow({ label, followerV, nonFollowerV, tab, totalForTab }: BarRowProp
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
-export default function AccountInsightsPanel() {
-  const [days, setDays] = useState<WindowDays>(30);
+export default function AccountInsightsPanel({ defaultDays = 30, showToggle = true, since, until }: AccountInsightsPanelProps) {
+  const [days, setDays] = useState<WindowDays>(defaultDays);
   const [tab, setTab] = useState<Tab>("all");
   const [data, setData] = useState<AccountInsightsResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,7 +130,12 @@ export default function AccountInsightsPanel() {
     setLoading(true);
     setError(null);
 
-    fetch(`/api/instagram/account-insights?days=${days}`)
+    // Use exact audit date range when provided, otherwise use rolling window
+    const url = since && until
+      ? `/api/instagram/account-insights?since=${since}&until=${until}`
+      : `/api/instagram/account-insights?days=${days}`;
+
+    fetch(url)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) throw new Error(d.error);
@@ -128,7 +143,7 @@ export default function AccountInsightsPanel() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [days]);
+  }, [days, since, until]);
 
   // The "total" denominator changes per tab
   const tabTotal = !data
@@ -154,21 +169,23 @@ export default function AccountInsightsPanel() {
         <h3 className="text-xs uppercase tracking-widest text-neutral-500">Account Insights</h3>
 
         {/* 30d / 90d toggle */}
-        <div className="flex rounded-lg overflow-hidden border border-neutral-700 text-xs">
-          {([30, 90] as WindowDays[]).map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1.5 transition-colors ${
-                days === d
-                  ? "bg-white text-black font-medium"
-                  : "text-neutral-400 hover:text-white"
-              }`}
-            >
-              {d}d
-            </button>
-          ))}
-        </div>
+        {showToggle && (
+          <div className="flex rounded-lg overflow-hidden border border-neutral-700 text-xs">
+            {([30, 90] as WindowDays[]).map((d) => (
+              <button
+                key={d}
+                onClick={() => setDays(d)}
+                className={`px-3 py-1.5 transition-colors ${
+                  days === d
+                    ? "bg-white text-black font-medium"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Loading */}

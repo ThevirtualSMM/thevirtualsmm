@@ -14,8 +14,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const daysParam = req.nextUrl.searchParams.get("days");
-  const days: 30 | 90 = daysParam === "90" ? 90 : 30;
+  const sinceParam = req.nextUrl.searchParams.get("since");
+  const untilParam = req.nextUrl.searchParams.get("until");
+  const daysParam  = req.nextUrl.searchParams.get("days");
 
   const { data: account } = await supabase
     .from("instagram_accounts")
@@ -29,7 +30,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No Instagram account connected" }, { status: 404 });
   }
 
-  const cacheKey = `${account.instagram_user_id}:${days}`;
+  // Resolve date window — prefer explicit since/until, fall back to days
+  let since: Date;
+  let until: Date;
+  let cacheKey: string;
+
+  if (sinceParam && untilParam) {
+    since = new Date(sinceParam);
+    until = new Date(untilParam);
+    cacheKey = `${account.instagram_user_id}:${sinceParam}:${untilParam}`;
+  } else {
+    const days: 30 | 90 = daysParam === "90" ? 90 : 30;
+    until = new Date();
+    until.setHours(0, 0, 0, 0);
+    since = new Date(until);
+    since.setDate(since.getDate() - days);
+    cacheKey = `${account.instagram_user_id}:${days}`;
+  }
+
   const cached = cache.get(cacheKey);
   if (cached && cached.expires > Date.now()) {
     return NextResponse.json(cached.data);
@@ -39,7 +57,8 @@ export async function GET(req: NextRequest) {
     const insights = await fetchAccountInsights(
       account.instagram_user_id,
       account.access_token,
-      days
+      since,
+      until
     );
 
     cache.set(cacheKey, { data: insights, expires: Date.now() + 60 * 60 * 1000 });
