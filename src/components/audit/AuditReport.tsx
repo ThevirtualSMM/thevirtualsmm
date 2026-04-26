@@ -3,43 +3,16 @@
 import Link from "next/link";
 import { Audit, Post } from "@/types";
 import PerformanceChart from "./PerformanceChart";
-import MetricCard from "./MetricCard";
 import PostCard from "./PostCard";
 import PostGallery from "./PostGallery";
 import AccountInsightsPanel from "@/components/dashboard/AccountInsightsPanel";
 
-function sum(posts: Post[], key: keyof Post): number {
-  return posts.reduce((a, p) => a + Number(p[key] || 0), 0);
-}
-
-// Weighted rate: total actions across all posts ÷ total reach
-// More accurate than simple average — gives proper weight to high-reach posts
-function weightedRate(posts: Post[], rateKey: keyof Post): number {
-  const totalReach = sum(posts, "accounts_reached");
-  if (totalReach === 0) return 0;
-  const totalActions = posts.reduce((a, p) => {
-    return a + Number(p[rateKey] || 0) * Number(p.accounts_reached || 0);
-  }, 0);
-  return totalActions / totalReach;
-}
-
-function pct(val: number) {
-  return `${(val * 100).toFixed(1)}%`;
-}
-
-function rateOrDash(posts: Post[], key: keyof Post): string {
-  if (posts.length === 0) return "—";
-  return pct(weightedRate(posts, key));
-}
-
 interface AuditReportProps {
   audit: Audit;
   posts: Post[];
-  followerReach?: number | null;
-  nonFollowerReach?: number | null;
 }
 
-export default function AuditReport({ audit, posts, followerReach, nonFollowerReach }: AuditReportProps) {
+export default function AuditReport({ audit, posts }: AuditReportProps) {
   const analysis = audit.claude_json;
 
   const bestByViews = posts.filter((p) => p.performance_tiers?.includes("best_views"));
@@ -94,38 +67,6 @@ export default function AuditReport({ audit, posts, followerReach, nonFollowerRe
             </div>
           </section>
         )}
-
-        {/* Overview metrics */}
-        <section>
-          <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Overview</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <MetricCard label="Total Posts" value={posts.length.toString()} />
-            <MetricCard
-              label="Avg Views / Post"
-              value={posts.length > 0 ? Math.round(sum(posts, "views") / posts.length).toLocaleString() : "—"}
-            />
-            <MetricCard label="Avg Watch Time" value={
-              (() => {
-                const reelsWithWatch = posts.filter(p => p.avg_watch_time_seconds != null && p.avg_watch_time_seconds > 0);
-                if (reelsWithWatch.length === 0) return "—";
-                const avg = reelsWithWatch.reduce((a, p) => a + (p.avg_watch_time_seconds || 0), 0) / reelsWithWatch.length;
-                return `${avg.toFixed(1)}s`;
-              })()
-            } />
-            <MetricCard
-              label="Reach — Followers"
-              value={followerReach != null ? followerReach.toLocaleString() : "—"}
-            />
-            <MetricCard
-              label="Reach — Non-followers"
-              value={nonFollowerReach != null ? nonFollowerReach.toLocaleString() : "—"}
-            />
-            <MetricCard label="Avg Like Rate"    value={rateOrDash(posts, "like_rate")} />
-            <MetricCard label="Avg Save Rate"    value={rateOrDash(posts, "save_rate")} />
-            <MetricCard label="Avg Share Rate"   value={rateOrDash(posts, "share_rate")} />
-            <MetricCard label="Avg Comment Rate" value={rateOrDash(posts, "comment_rate")} />
-          </div>
-        </section>
 
         {/* Account Insights — locked to this audit's exact date window */}
         <section>
