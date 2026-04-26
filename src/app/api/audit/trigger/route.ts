@@ -64,22 +64,33 @@ async function runAudit(
   since: Date,
 ) {
   try {
-    const totalScraped = await scrapeAndStore(auditId, userId, igUserId, accessToken, since);
+    const { scraped, total, errors } = await scrapeAndStore(auditId, userId, igUserId, accessToken, since);
+
+    if (total === 0) {
+      await supabase.from("audits").update({
+        status: "failed",
+        error_message: "No posts found in the last 30 days on this Instagram account.",
+      }).eq("id", auditId);
+      return;
+    }
 
     await supabase
       .from("audits")
-      .update({ status: "analyzing", total_posts_scraped: totalScraped })
+      .update({ status: "analyzing", total_posts_scraped: scraped })
       .eq("id", auditId);
 
-    const { data: posts } = await supabase
+    const { data: posts, error: postsError } = await supabase
       .from("posts")
       .select("*")
       .eq("audit_id", auditId);
 
-    if (!posts || posts.length === 0) {
+    if (postsError || !posts || posts.length === 0) {
+      const detail = postsError
+        ? `DB error: ${postsError.message}`
+        : `Found ${total} posts on Instagram, scraped ${scraped}, but 0 saved. Errors: ${errors.slice(0, 3).join(" | ")}`;
       await supabase
         .from("audits")
-        .update({ status: "failed", error_message: "No posts found" })
+        .update({ status: "failed", error_message: detail })
         .eq("id", auditId);
       return;
     }

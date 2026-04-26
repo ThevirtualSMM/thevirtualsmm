@@ -28,11 +28,12 @@ export async function scrapeAndStore(
   accessToken: string,
   since: Date,
   onProgress?: (scraped: number, total: number) => void
-) {
+): Promise<{ scraped: number; total: number; errors: string[] }> {
   const mediaIds = await getRecentMediaIds(igUserId, accessToken, since);
-  if (mediaIds.length === 0) return 0;
+  if (mediaIds.length === 0) return { scraped: 0, total: 0, errors: [] };
 
   let scraped = 0;
+  const errors: string[] = [];
 
   for (const mediaId of mediaIds) {
     try {
@@ -117,7 +118,9 @@ export async function scrapeAndStore(
           { onConflict: "audit_id,instagram_post_id" }
         );
         if (retryError) {
-          console.error(`Failed to upsert post ${mediaId}:`, retryError.message);
+          const msg = `Post ${mediaId}: ${retryError.message}`;
+          errors.push(msg);
+          console.error("Failed to upsert post:", msg);
           continue;
         }
       }
@@ -126,9 +129,11 @@ export async function scrapeAndStore(
       onProgress?.(scraped, mediaIds.length);
       await new Promise((r) => setTimeout(r, 200));
     } catch (err) {
-      console.error(`Failed to scrape post ${mediaId}:`, err);
+      const msg = `Post ${mediaId}: ${err instanceof Error ? err.message : String(err)}`;
+      errors.push(msg);
+      console.error("Failed to scrape post:", msg);
     }
   }
 
-  return scraped;
+  return { scraped, total: mediaIds.length, errors };
 }
