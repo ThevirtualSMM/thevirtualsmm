@@ -77,6 +77,12 @@ export async function GET() {
     `${BASE}/${igUserId}/insights?metric=reach&period=day&metric_type=total_value&since=${sinceTs}&until=${untilTs}&access_token=${token}`,
     // 14. reach + metric_type=total_value + follow_type
     `${BASE}/${igUserId}/insights?metric=reach&period=day&metric_type=total_value&breakdown=follow_type&since=${sinceTs}&until=${untilTs}&access_token=${token}`,
+    // 15. Double breakdown: views by follow_type AND media_product_type (the holy grail)
+    `${BASE}/${igUserId}/insights?metric=views&period=day&metric_type=total_value&breakdown=follow_type,media_product_type&since=${sinceTs}&until=${untilTs}&access_token=${token}`,
+    // 16. Reach by media_product_type
+    `${BASE}/${igUserId}/insights?metric=reach&period=day&metric_type=total_value&breakdown=media_product_type&since=${sinceTs}&until=${untilTs}&access_token=${token}`,
+    // 17. Followers count (just to know audience size)
+    `${BASE}/${igUserId}?fields=followers_count&access_token=${token}`,
   ];
 
   const results = await Promise.all(calls.map(rawFetch));

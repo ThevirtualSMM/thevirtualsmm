@@ -73,22 +73,27 @@ function Skeleton() {
 // ── Bar row ───────────────────────────────────────────────────────────────────
 interface BarRowProps {
   label: string;
+  /** Total views in this row across all viewer types (FOLLOWER + NON_FOLLOWER + UNKNOWN) */
+  total: number;
   followerV: number;
   nonFollowerV: number;
   tab: Tab;
+  /** Denominator for the % shown — totalViews / followerViews / nonFollowerViews */
   totalForTab: number;
 }
 
-function BarRow({ label, followerV, nonFollowerV, tab, totalForTab }: BarRowProps) {
+function BarRow({ label, total, followerV, nonFollowerV, tab, totalForTab }: BarRowProps) {
   let barWidthPct: number;
-  let pinkPct: number;   // % of bar that is pink
-  let purplePct: number; // % of bar that is purple
+  let pinkPct: number;   // % of bar that is pink (followers)
+  let purplePct: number; // % of bar that is purple (non-followers)
 
   if (tab === "all") {
-    const categoryTotal = followerV + nonFollowerV;
-    barWidthPct = totalForTab > 0 ? (categoryTotal / totalForTab) * 100 : 0;
-    pinkPct   = categoryTotal > 0 ? (followerV    / categoryTotal) * 100 : 0;
-    purplePct = categoryTotal > 0 ? (nonFollowerV / categoryTotal) * 100 : 0;
+    // Bar length = this content type's share of all views (matches IG native).
+    barWidthPct = totalForTab > 0 ? (total / totalForTab) * 100 : 0;
+    // Color split inside the bar = follower vs non-follower share of THIS row's
+    // views. UNKNOWN viewers (a tiny remainder) leave the rest of the bar grey.
+    pinkPct   = total > 0 ? (followerV    / total) * 100 : 0;
+    purplePct = total > 0 ? (nonFollowerV / total) * 100 : 0;
   } else if (tab === "followers") {
     barWidthPct = totalForTab > 0 ? (followerV / totalForTab) * 100 : 0;
     pinkPct   = 100;
@@ -154,13 +159,18 @@ export default function AccountInsightsPanel({ defaultDays = 30, showToggle = tr
     ? data.followerViews
     : data.nonFollowerViews;
 
-  const rows: { label: string; fv: number; nfv: number }[] = data
+  const rows: { label: string; total: number; fv: number; nfv: number }[] = data
     ? [
-        { label: "Reels",   fv: data.followerViewsByContentType.reels,   nfv: data.nonFollowerViewsByContentType.reels   },
-        { label: "Stories", fv: data.followerViewsByContentType.stories, nfv: data.nonFollowerViewsByContentType.stories },
-        { label: "Posts",   fv: data.followerViewsByContentType.posts,   nfv: data.nonFollowerViewsByContentType.posts   },
+        { label: "Reels",   total: data.viewsByContentType.reels,   fv: data.followerViewsByContentType.reels,   nfv: data.nonFollowerViewsByContentType.reels   },
+        { label: "Stories", total: data.viewsByContentType.stories, fv: data.followerViewsByContentType.stories, nfv: data.nonFollowerViewsByContentType.stories },
+        { label: "Posts",   total: data.viewsByContentType.posts,   fv: data.followerViewsByContentType.posts,   nfv: data.nonFollowerViewsByContentType.posts   },
       ]
     : [];
+
+  // Use known-audience views (FOLLOWER + NON_FOLLOWER, excluding UNKNOWN) as
+  // the denominator for the follower-share %s so they sum to 100% — matches
+  // Instagram's native panel behavior.
+  const knownViews = data ? data.followerViews + data.nonFollowerViews : 0;
 
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
@@ -237,7 +247,7 @@ export default function AccountInsightsPanel({ defaultDays = 30, showToggle = tr
                   <span className="text-sm text-neutral-300">Followers</span>
                 </div>
                 <span className="text-sm font-semibold text-white tabular-nums">
-                  {pct(data.followerViews, data.totalViews)}
+                  {pct(data.followerViews, knownViews)}
                 </span>
               </div>
 
@@ -248,7 +258,7 @@ export default function AccountInsightsPanel({ defaultDays = 30, showToggle = tr
                   <span className="text-sm text-neutral-300">Non-followers</span>
                 </div>
                 <span className="text-sm font-semibold text-white tabular-nums">
-                  {pct(data.nonFollowerViews, data.totalViews)}
+                  {pct(data.nonFollowerViews, knownViews)}
                 </span>
               </div>
 
@@ -301,6 +311,7 @@ export default function AccountInsightsPanel({ defaultDays = 30, showToggle = tr
                 <BarRow
                   key={row.label}
                   label={row.label}
+                  total={row.total}
                   followerV={row.fv}
                   nonFollowerV={row.nfv}
                   tab={tab}

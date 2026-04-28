@@ -3,8 +3,8 @@
 const BASE = `https://graph.instagram.com/v21.0`;
 
 // All account-level metrics in v21+ require period=day + metric_type=total_value.
-// Without metric_type=total_value the API silently returns {data:[]}.
-// period=total_over_range errors with code 1 ("unknown error") for some metrics.
+// Double breakdown (follow_type,media_product_type) IS supported for views — gives
+// exact per-cell counts so we don't approximate. Reach single-breakdown only.
 
 export interface ContentBreakdown {
   reels: number;
@@ -30,7 +30,7 @@ function toUnix(d: Date) {
   return Math.floor(d.getTime() / 1000);
 }
 
-// ── Response parsers ─────────────────────────────────────────────────────────
+// ── Response types ───────────────────────────────────────────────────────────
 
 interface InsightsItem {
   total_value?: {
@@ -42,21 +42,6 @@ interface InsightsItem {
   };
 }
 
-function getTotalValue(data: unknown): number {
-  return (data as InsightsItem | null)?.total_value?.value ?? 0;
-}
-
-function getBreakdown(data: unknown, key: string): Record<string, number> {
-  const item = data as InsightsItem | null;
-  const bd = item?.total_value?.breakdowns?.find((b) => b.dimension_keys?.includes(key));
-  if (!bd) return {};
-  const out: Record<string, number> = {};
-  for (const r of bd.results) {
-    out[r.dimension_values[0]] = r.value;
-  }
-  return out;
-}
-
 // ── Fetcher ──────────────────────────────────────────────────────────────────
 
 async function fetchInsight(
@@ -66,7 +51,7 @@ async function fetchInsight(
   breakdown: string | null,
   since: number,
   until: number
-): Promise<unknown> {
+): Promise<InsightsItem | null> {
   const params = new URLSearchParams({
     metric,
     period: "day",
@@ -86,7 +71,16 @@ async function fetchInsight(
     );
     throw new Error(json.error.message);
   }
-  return json.data?.[0] ?? null;
+  return (json.data?.[0] ?? null) as InsightsItem | null;
+}
+
+// Map IG's media_product_type values to our { reels, stories, posts } buckets.
+// REEL → reels, STORY → stories, anything else (POST, CAROUSEL_CONTAINER,
+// CAROUSEL_ALBUM, FEED, IGTV, …) → posts.
+function bucketOf(mediaType: string): keyof ContentBreakdown {
+  if (mediaType === "REEL" || mediaType === "REELS") return "reels";
+  if (mediaType === "STORY" || mediaType === "STORIES") return "stories";
+  return "posts";
 }
 
 // ── Main export ──────────────────────────────────────────────────────────────
@@ -101,68 +95,70 @@ export async function fetchAccountInsights(
   const untilTs = toUnix(until);
   const days = Math.round((until.getTime() - since.getTime()) / (1000 * 60 * 60 * 24));
 
-  // 4 parallel calls — every breakdown response also contains the unbroken total
-  // in total_value.value, so we only need one for the views total and one for reach.
-  const [viewsByTypeRaw, viewsByFollowRaw, reachRaw, reachByFollowRaw] =
-    await Promise.allSettled([
-      fetchInsight(igUserId, accessToken, "views", "media_product_type", sinceTs, untilTs),
-      fetchInsight(igUserId, accessToken, "views", "follow_type",        sinceTs, untilTs),
-      fetchInsight(igUserId, accessToken, "reach", null,                 sinceTs, untilTs),
-      fetchInsight(igUserId, accessToken, "reach", "follow_type",        sinceTs, untilTs),
-    ]);
+  // 2 parallel calls. The double-breakdown gives us exact per-cell views; the
+  // reach call covers total reach + the follower/non-follower reach split.
+  const [viewsRaw, reachRaw] = await Promise.allSettled([
+    fetchInsight(igUserId, accessToken, "views", "follow_type,media_product_type", sinceTs, untilTs),
+    fetchInsight(igUserId, accessToken, "reach", "follow_type", sinceTs, untilTs),
+  ]);
 
-  const viewsByTypeData   = viewsByTypeRaw.status   === "fulfilled" ? viewsByTypeRaw.value   : null;
-  const viewsByFollowData = viewsByFollowRaw.status === "fulfilled" ? viewsByFollowRaw.value : null;
-  const reachData         = reachRaw.status         === "fulfilled" ? reachRaw.value         : null;
-  const reachByFollowData = reachByFollowRaw.status === "fulfilled" ? reachByFollowRaw.value : null;
+  const viewsData = viewsRaw.status === "fulfilled" ? viewsRaw.value : null;
+  const reachData = reachRaw.status === "fulfilled" ? reachRaw.value : null;
 
-  // Totals — prefer the unbreakdown call, fall back to a breakdown response if needed
-  const totalViews =
-    getTotalValue(viewsByTypeData) ||
-    getTotalValue(viewsByFollowData);
-  const totalReach =
-    getTotalValue(reachData) ||
-    getTotalValue(reachByFollowData);
+  // ── Views: walk every cell of the (follow_type × media_product_type) matrix ─
+  const totalViews = viewsData?.total_value?.value ?? 0;
 
-  // Content-type breakdown (REEL, STORY, CAROUSEL_CONTAINER, POST)
-  const byType = getBreakdown(viewsByTypeData, "media_product_type");
-  const viewsByContentType: ContentBreakdown = {
-    reels:   byType["REEL"]  ?? byType["REELS"]  ?? 0,
-    stories: byType["STORY"] ?? byType["STORIES"] ?? 0,
-    posts:
-      (byType["POST"] ?? 0) +
-      (byType["FEED"] ?? 0) +
-      (byType["CAROUSEL_CONTAINER"] ?? 0) +
-      (byType["CAROUSEL_ALBUM"] ?? 0),
-  };
+  const empty = (): ContentBreakdown => ({ reels: 0, stories: 0, posts: 0 });
+  const viewsByContentType         = empty();
+  const followerViewsByContentType = empty();
+  const nonFollowerViewsByContentType = empty();
+  let followerViews = 0;
+  let nonFollowerViews = 0;
 
-  // Views by follow type
-  const byFollow = getBreakdown(viewsByFollowData, "follow_type");
-  const followerViews    = byFollow["FOLLOWER"]     ?? 0;
-  const nonFollowerViews = byFollow["NON_FOLLOWER"] ?? 0;
+  const cells = viewsData?.total_value?.breakdowns?.[0]?.results ?? [];
+  const keys  = viewsData?.total_value?.breakdowns?.[0]?.dimension_keys ?? [];
+  const followIdx = keys.indexOf("follow_type");
+  const typeIdx   = keys.indexOf("media_product_type");
 
-  // Reach by follow type
-  const byReachFollow = getBreakdown(reachByFollowData, "follow_type");
-  const followerReach    = byReachFollow["FOLLOWER"]     ?? 0;
-  const nonFollowerReach = byReachFollow["NON_FOLLOWER"] ?? 0;
+  if (followIdx >= 0 && typeIdx >= 0) {
+    for (const cell of cells) {
+      const follow = cell.dimension_values[followIdx]; // FOLLOWER | NON_FOLLOWER | UNKNOWN
+      const type   = cell.dimension_values[typeIdx];
+      const value  = cell.value ?? 0;
+      const bucket = bucketOf(type);
+
+      viewsByContentType[bucket] += value;
+
+      if (follow === "FOLLOWER") {
+        followerViewsByContentType[bucket] += value;
+        followerViews += value;
+      } else if (follow === "NON_FOLLOWER") {
+        nonFollowerViewsByContentType[bucket] += value;
+        nonFollowerViews += value;
+      }
+      // UNKNOWN cells contribute to viewsByContentType (and totalViews from the
+      // API), but we deliberately drop them from follower/non-follower buckets
+      // so percentages add to 100% — matches Instagram's native panel.
+    }
+  }
+
+  // ── Reach ────────────────────────────────────────────────────────────────────
+  const totalReach = reachData?.total_value?.value ?? 0;
+
+  const reachCells = reachData?.total_value?.breakdowns?.[0]?.results ?? [];
+  const reachKeys  = reachData?.total_value?.breakdowns?.[0]?.dimension_keys ?? [];
+  const reachFollowIdx = reachKeys.indexOf("follow_type");
+  let followerReach = 0;
+  let nonFollowerReach = 0;
+  if (reachFollowIdx >= 0) {
+    for (const cell of reachCells) {
+      const follow = cell.dimension_values[reachFollowIdx];
+      if (follow === "FOLLOWER")     followerReach    += cell.value ?? 0;
+      if (follow === "NON_FOLLOWER") nonFollowerReach += cell.value ?? 0;
+    }
+  }
 
   const insufficientData = totalViews === 0 && totalReach === 0;
-
-  // Per-content-type follower split (approximated via overall ratio —
-  // the API doesn't support double-breakdown in a single call)
-  const followerRatio    = totalViews > 0 ? followerViews    / totalViews : 0;
-  const nonFollowerRatio = totalViews > 0 ? nonFollowerViews / totalViews : 0;
-
-  const followerViewsByContentType: ContentBreakdown = {
-    reels:   Math.round(viewsByContentType.reels   * followerRatio),
-    stories: Math.round(viewsByContentType.stories * followerRatio),
-    posts:   Math.round(viewsByContentType.posts   * followerRatio),
-  };
-  const nonFollowerViewsByContentType: ContentBreakdown = {
-    reels:   Math.round(viewsByContentType.reels   * nonFollowerRatio),
-    stories: Math.round(viewsByContentType.stories * nonFollowerRatio),
-    posts:   Math.round(viewsByContentType.posts   * nonFollowerRatio),
-  };
 
   return {
     totalViews,
