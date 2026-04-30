@@ -5,14 +5,23 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Audit } from "@/types";
 
-const statusMessages: Record<string, string> = {
-  pending:   "Starting audit...",
-  scraping:  "Fetching your Instagram posts and metrics...",
-  analyzing: "Analyzing your 90-day performance...",
-};
+function buildStatusMessages(audit: Audit): Record<string, string> {
+  const start = audit.date_range_start ? new Date(audit.date_range_start) : null;
+  const end   = audit.date_range_end   ? new Date(audit.date_range_end)   : null;
+  const days = start && end
+    ? Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
+    : null;
+  const window = days ? `${days}-day` : "recent";
+  return {
+    pending:   "Starting audit...",
+    scraping:  "Fetching your Instagram posts and metrics...",
+    analyzing: `Analyzing your ${window} performance...`,
+  };
+}
 
 export default function AuditInProgress({ audit }: { audit: Audit }) {
   const router = useRouter();
+  const statusMessages = buildStatusMessages(audit);
 
   useEffect(() => {
     if (audit.status === "failed") return;

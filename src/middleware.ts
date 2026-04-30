@@ -2,13 +2,20 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
+  const path = req.nextUrl.pathname;
   const isLoggedIn = !!req.auth;
-  const isAuthPage = req.nextUrl.pathname.startsWith("/login") ||
-    req.nextUrl.pathname.startsWith("/signup");
-  const isApiAuth = req.nextUrl.pathname.startsWith("/api/auth") ||
-    req.nextUrl.pathname.startsWith("/api/debug");
 
-  if (isApiAuth) return NextResponse.next();
+  // Public routes — accessible without auth.
+  const isPublic =
+    path === "/" ||                          // landing page
+    path.startsWith("/api/audit/start") ||   // landing CTA endpoint
+    path.startsWith("/api/auth") ||
+    path.startsWith("/api/debug");
+
+  const isAuthPage =
+    path.startsWith("/login") || path.startsWith("/signup");
+
+  if (isPublic) return NextResponse.next();
 
   if (!isLoggedIn && !isAuthPage) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
