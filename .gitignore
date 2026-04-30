@@ -8,3 +8,5 @@ out/
 
 # Claude Code worktrees (used by claude-cli for isolated branches)
 .claude/worktrees/
+
+tsconfig.tsbuildinfo
