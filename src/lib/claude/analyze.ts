@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { Post, ClaudeAnalysis } from "@/types";
+import { ARCHETYPES, type ArchetypeKey } from "@/app/onboarding/archetypes";
+import type { OnboardingState } from "@/app/onboarding/state";
 
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -8,10 +10,57 @@ const client = new OpenAI({
 
 const MODEL = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4-5";
 
-function buildPrompt(postsData: Record<string, unknown>[]): string {
+export interface BrandContext {
+  responses: OnboardingState;
+  archetype_primary: ArchetypeKey | null;
+  archetype_secondary: ArchetypeKey | null;
+}
+
+function buildBrandPreamble(ctx: BrandContext | null): string {
+  if (!ctx) return "";
+
+  const r = ctx.responses;
+  const primary   = ctx.archetype_primary   ? ARCHETYPES[ctx.archetype_primary]   : null;
+  const secondary = ctx.archetype_secondary ? ARCHETYPES[ctx.archetype_secondary] : null;
+
+  const lines: string[] = ["BRAND CONTEXT (use this to tailor the summary, patterns, and observations):"];
+
+  if (r.goal?.primary)          lines.push(`- Main goal: ${labelGoal(r.goal.primary)}`);
+  if (r.goal?.followers_target) lines.push(`- 90-day target: ${labelTarget(r.goal.followers_target)}`);
+  if (r.goal?.selling === "yes" && r.goal.offer) {
+    lines.push(`- Currently selling: ${r.goal.offer}${r.goal.price ? ` (${r.goal.price})` : ""}`);
+  }
+  if (r.audience?.niche)        lines.push(`- Niche: ${r.audience.niche}`);
+  if (r.audience?.locations?.length) lines.push(`- Audience locations: ${r.audience.locations.join(", ")}`);
+  if (r.audience?.problem)      lines.push(`- Audience problem they help solve: ${r.audience.problem}`);
+  if (r.branding?.topics?.length)     lines.push(`- Content pillars: ${r.branding.topics.join(", ")}`);
+  if (r.branding?.voice?.length)      lines.push(`- Voice: ${r.branding.voice.join(", ")}`);
+  if (r.branding?.differentiator)     lines.push(`- Differentiator: ${r.branding.differentiator}`);
+  if (r.branding?.brand_kind)         lines.push(`- Brand type: ${r.branding.brand_kind === "personal" ? "personal brand" : "business brand"}`);
+  if (primary)   lines.push(`- Brand archetype (primary): ${primary.name} — ${primary.tagline}`);
+  if (secondary) lines.push(`- Brand archetype (secondary): ${secondary.name} — ${secondary.tagline}`);
+
+  lines.push(
+    "",
+    "Tailor the analysis to this creator's specific niche, voice, and goal — don't write generic advice.",
+    "When you suggest patterns or observations, frame them in terms of what would help this creator hit their stated goal."
+  );
+  return lines.join("\n");
+}
+
+function labelGoal(g: string): string {
+  return ({ grow: "grow audience", sell: "sell offer", authority: "build authority", traffic: "drive traffic" } as Record<string, string>)[g] ?? g;
+}
+
+function labelTarget(t: string): string {
+  return ({ "1k": "to 1K", "1k_5k": "1K → 5K", "5k_10k": "5K → 10K", "10k_50k": "10K → 50K", "50k_plus": "50K+" } as Record<string, string>)[t] ?? t;
+}
+
+function buildPrompt(postsData: Record<string, unknown>[], brand: BrandContext | null): string {
+  const preamble = buildBrandPreamble(brand);
   return `You are an expert social media analyst. Analyze this Instagram account's 90-day performance data and return a JSON object.
 
-POSTS DATA:
+${preamble ? preamble + "\n\n" : ""}POSTS DATA:
 ${JSON.stringify(postsData, null, 2)}
 
 Return ONLY valid JSON in this exact structure (no markdown, no explanation):
@@ -34,7 +83,10 @@ Each post object in the arrays should have:
 { "instagram_post_id": string, "post_type": string, "posted_at": string, "caption_preview": string, "metric_value": number, "metric_label": string }`;
 }
 
-export async function analyzeAudit(posts: Post[]): Promise<{ summary: string; analysis: ClaudeAnalysis }> {
+export async function analyzeAudit(
+  posts: Post[],
+  brand: BrandContext | null = null,
+): Promise<{ summary: string; analysis: ClaudeAnalysis }> {
   const postsData = posts.map((p) => ({
     id: p.instagram_post_id,
     type: p.post_type,
@@ -59,7 +111,7 @@ export async function analyzeAudit(posts: Post[]): Promise<{ summary: string; an
     duration_seconds: p.duration_seconds,
   }));
 
-  const prompt = buildPrompt(postsData);
+  const prompt = buildPrompt(postsData, brand);
 
   const response = await client.chat.completions.create({
     model: MODEL,

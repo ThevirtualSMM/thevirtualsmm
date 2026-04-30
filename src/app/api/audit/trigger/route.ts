@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase/client";
 import { scrapeAndStore } from "@/lib/instagram/scraper";
-import { analyzeAudit } from "@/lib/claude/analyze";
+import { analyzeAudit, type BrandContext } from "@/lib/claude/analyze";
 import { Post } from "@/types";
 
 export const maxDuration = 300;
@@ -106,7 +106,22 @@ async function runAudit(
       return;
     }
 
-    const { summary, analysis } = await analyzeAudit(posts as Post[]);
+    // Load the user's brand profile so the analysis is tailored to their
+    // niche, voice, archetype, and goal. Non-fatal if missing.
+    const { data: profileRow } = await supabase
+      .from("brand_profiles")
+      .select("responses, archetype_primary, archetype_secondary")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const brand: BrandContext | null = profileRow
+      ? {
+          responses:           profileRow.responses,
+          archetype_primary:   profileRow.archetype_primary,
+          archetype_secondary: profileRow.archetype_secondary,
+        }
+      : null;
+
+    const { summary, analysis } = await analyzeAudit(posts as Post[], brand);
 
     const tierUpdates: Record<string, string[]> = {};
     const addTier = (postId: string, tier: string) => {

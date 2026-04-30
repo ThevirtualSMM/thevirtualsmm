@@ -95,7 +95,7 @@ export default function Onboarding({ igConnected, igUsername }: Props) {
       <div className="sticky top-0 z-20 backdrop-blur bg-[#FAF7F2]/95 border-b border-[#E9E3D8]">
         <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="text-sm font-semibold text-[#1F1B2E]">Setup</div>
-          <a href="/dashboard" className="text-xs text-[#8B829F] hover:text-[#1F1B2E]">
+          <a href="/dashboard?onboarding=skip" className="text-xs text-[#8B829F] hover:text-[#1F1B2E]">
             Skip for now
           </a>
         </div>

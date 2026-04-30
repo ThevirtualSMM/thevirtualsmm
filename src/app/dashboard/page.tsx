@@ -11,7 +11,7 @@ import LogoutButton from "@/components/dashboard/LogoutButton";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ig_connected?: string; ig_error?: string }>;
+  searchParams: Promise<{ ig_connected?: string; ig_error?: string; onboarding?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -26,6 +26,26 @@ export default async function DashboardPage({
     .order("connected_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // ── Onboarding gate ────────────────────────────────────────────────────
+  // First-time users are redirected to /onboarding. Users who clicked
+  // "Skip for now" land here with ?onboarding=skip and we let them through
+  // for this render (refreshing without the param would redirect again,
+  // which is intentional — completing onboarding is meant to be the path).
+  if (params.onboarding !== "skip") {
+    const { data: profile, error: profileError } = await supabase
+      .from("brand_profiles")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    // If the table doesn't exist yet (migration not run), don't gate.
+    // Forward-compatible — feature lights up the moment the migration runs.
+    const tableMissing = profileError?.message?.toLowerCase().includes("could not find the table");
+    if (!profile && !tableMissing) {
+      redirect("/onboarding");
+    }
+  }
 
   const { data: audits } = await supabase
     .from("audits")
