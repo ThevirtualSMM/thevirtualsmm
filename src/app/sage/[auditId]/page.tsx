@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { buildAuditData } from "./lib/buildAuditData";
+import { buildDemoAuditData } from "./lib/buildDemoData";
 import { SageProvider } from "./SageContext";
 import SageDashboard from "./SageDashboard";
 import SageInProgress from "./SageInProgress";
@@ -9,10 +10,25 @@ import "./sage.css";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Your Sage audit — Virtual SMMA" };
 
-interface Params { params: Promise<{ auditId: string }> }
+interface Params {
+  params: Promise<{ auditId: string }>;
+  searchParams: Promise<{ u?: string }>;
+}
 
-export default async function SagePage({ params }: Params) {
+export default async function SagePage({ params, searchParams }: Params) {
   const { auditId } = await params;
+  const sp = await searchParams;
+
+  // ── Demo path: anonymous visitor from the landing page. No DB lookup,
+  // no auth required — just a Sage dashboard built from the typed handle.
+  if (auditId === "demo") {
+    const auditData = buildDemoAuditData(sp.u ?? "your_account");
+    return (
+      <SageProvider auditData={auditData}>
+        <SageDashboard />
+      </SageProvider>
+    );
+  }
 
   const { data: audit } = await supabase
     .from("audits")

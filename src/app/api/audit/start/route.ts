@@ -7,15 +7,14 @@ export const maxDuration = 300;
 
 /**
  * One-shot audit kickoff for the landing page. Takes a username, figures
- * out which account to audit, and tells the client where to go next.
+ * out which audit to send the user to, and tells the client where to go next.
  *
  * Body: { username: string, days?: 30 | 90 }
  *
  * Responses (always 200):
- *   { redirect: "/login?next=..." }      — not logged in
+ *   { redirect: "/sage/demo?u=<handle>" } — anonymous visitor → free demo audit (no signup)
  *   { redirect: "/api/instagram/connect" } — logged in, no IG connected
- *   { redirect: "/dashboard?ig_required=<handle>" } — wrong handle
- *   { audit_id: "..." }                  — kickoff succeeded
+ *   { audit_id: "..." }                  — logged-in real audit kickoff succeeded
  */
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { username?: string; days?: number };
@@ -28,9 +27,10 @@ export async function POST(req: NextRequest) {
 
   const session = await auth();
   if (!session?.user?.id) {
-    // Stash the handle so it survives the auth round-trip.
-    const next = `/?u=${encodeURIComponent(handle)}&autorun=1`;
-    return NextResponse.json({ redirect: `/login?next=${encodeURIComponent(next)}` });
+    // Anonymous visitor — send them straight to a free demo audit. No
+    // signup required. The 'Unlock full audit' CTA on the dashboard is
+    // what eventually drives signup.
+    return NextResponse.json({ redirect: `/sage/demo?u=${encodeURIComponent(handle)}` });
   }
   const userId = session.user.id;
 
