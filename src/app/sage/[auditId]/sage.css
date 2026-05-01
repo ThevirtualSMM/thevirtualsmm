@@ -1,0 +1,46 @@
+/* Sage dashboard — local styles. Imported only by /sage/[auditId]/page.tsx
+   so the global dark theme stays untouched elsewhere. */
+
+/* ── Animations ─────────────────────────────────────────────────────────── */
+@keyframes sage-fade-in-down {
+  0%   { opacity: 0; transform: translateY(-12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes sage-fade-in-up {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes sage-modal-fade {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes sage-modal-pop {
+  0%   { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes sage-shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+@keyframes sage-wave {
+  0%, 100% { height: 8px; }
+  50%      { height: var(--peak, 24px); }
+}
+
+.sage-fade-in-down { animation: sage-fade-in-down 0.30s ease-out both; }
+.sage-fade-in-up   { animation: sage-fade-in-up   0.40s ease-out both; }
+.sage-modal-fade   { animation: sage-modal-fade   0.18s ease-out both; }
+.sage-modal-pop    { animation: sage-modal-pop    0.20s ease-out both; }
+
+.sage-shimmer {
+  background: linear-gradient(90deg, #ececec 0%, #f6f6f6 50%, #ececec 100%);
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  animation: sage-shimmer 1.4s linear infinite;
+}
+
+.sage-wave-bar {
+  display: inline-block;
+  animation: sage-wave 0.9s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}

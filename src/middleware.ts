@@ -8,6 +8,7 @@ export default auth((req) => {
   // Public routes — accessible without auth.
   const isPublic =
     path === "/" ||                          // landing page
+    path.startsWith("/sage") ||              // free public audit dashboard
     path.startsWith("/api/audit/start") ||   // landing CTA endpoint
     path.startsWith("/api/auth") ||
     path.startsWith("/api/debug");

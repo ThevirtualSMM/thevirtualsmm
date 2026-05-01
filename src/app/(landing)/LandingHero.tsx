@@ -41,7 +41,7 @@ export default function LandingHero({ initialHandle = "", autorun = false }: { i
         return;
       }
       if (json.audit_id) {
-        router.push(`/audit/${json.audit_id}`);
+        router.push(`/sage/${json.audit_id}`);
         return;
       }
       throw new Error(json.error ?? "Couldn't start the audit");
